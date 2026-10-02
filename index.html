@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>G1 Pilot</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--panel2:#1c2330;--line:#2b3442;--txt:#e6edf3;--dim:#8b949e;
+        --ok:#2ea043;--warn:#d29922;--err:#da3633;--accent:#388bfd;--gesture:#8957e5}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  header{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+  h1{font-size:17px;margin:0;letter-spacing:.3px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--err);display:inline-block}
+  .dot.on{background:var(--ok)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+  .chip{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;color:var(--dim)}
+  .chip b{color:var(--txt);font-weight:600}
+  main{padding:12px;display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));max-width:1400px;margin:0 auto}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin:0 0 10px}
+  button{font:inherit;color:var(--txt);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button:active{transform:translateY(1px)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .grid{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(112px,1fr))}
+  .pose button{width:100%}
+  .gesture button{background:#221b33;border-color:#3b3054}
+  .gesture button:hover{border-color:var(--gesture)}
+  .danger{background:var(--err);border-color:var(--err);font-weight:700}
+  .clear{background:#3d2b12;border-color:var(--warn);color:#f0d38a}
+  textarea{width:100%;min-height:74px;background:#0b0f14;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:9px;font:inherit;resize:vertical}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+  select,input[type=range]{background:#0b0f14;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:6px}
+  label.inline{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--dim)}
+  .phrase{border-radius:999px;padding:6px 11px;font-size:13px}
+  #estopbar{position:sticky;bottom:0;z-index:6;background:linear-gradient(180deg,rgba(13,17,23,.6),#0d1117 45%);padding:10px 12px;display:flex;gap:10px;align-items:center;border-top:1px solid var(--line);flex-wrap:wrap}
+  #estopbar button{flex:1 1 220px;padding:14px;font-size:16px;letter-spacing:.04em}
+  .gate{display:flex;gap:10px;align-items:center;background:#1b1408;border:1px solid #4a3a12;border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:13px;color:#f0d38a}
+  .pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:330px;margin:0 auto}
+  .pad button{aspect-ratio:1.6/1;font-size:20px}
+  .pad .mid{visibility:hidden}
+  .status{font-size:12px;color:var(--dim);margin-top:8px;min-height:16px}
+  .log{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;max-height:190px;overflow:auto;color:var(--dim)}
+  .qa{border-left:3px solid var(--accent);padding:7px 10px;background:var(--panel2);border-radius:6px;margin-top:8px;font-size:14px}
+  .qa .q{color:var(--dim);font-size:12px}
+  .badge{display:inline-block;border-radius:999px;padding:1px 8px;font-size:11px;border:1px solid var(--line);color:var(--dim);margin-right:4px}
+  .badge.kb{border-color:var(--ok);color:#7ee2a8}
+  .badge.web{ border-color:var(--accent);color:#9ecbff}
+  .badge.none{border-color:var(--warn);color:#f0d38a}
+  .kb{max-height:190px;overflow:auto;font-size:13px;margin-top:8px}
+  .kb .e{border-bottom:1px solid var(--line);padding:6px 0;display:flex;gap:8px;align-items:flex-start}
+  .kb .e b{display:block}
+  .kb .e span{color:var(--dim)}
+  .kb .e button{padding:2px 8px;font-size:12px}
+  .log b{color:var(--txt);font-weight:600}
+  .banner{background:#3d1013;border:1px solid var(--err);color:#ffb4b4;padding:8px 10px;border-radius:8px;margin-bottom:10px;font-size:13px;display:none}
+  .banner.on{display:block}
+  .hint{font-size:12px;color:var(--dim);margin-top:8px}
+  footer{padding:6px 14px 20px;color:var(--dim);font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <span class="dot" id="link"></span>
+  <h1>G1 Pilot</h1>
+  <span class="chip">fsm <b id="c-fsm">–</b></span>
+  <span class="chip">vol <b id="c-vol">–</b></span>
+  <span class="chip">voice <b id="c-voice">–</b></span>
+  <span class="chip">estop <b id="c-estop">–</b></span>
+  <span class="chip" id="c-move">idle</span>
+  <span class="chips"><span class="chip" id="c-up">–</span></span>
+</header>
+
+<main>
+  <section>
+    <h2>Speech</h2>
+    <textarea id="saytext" placeholder="Type what the robot should say…"></textarea>
+    <div class="row">
+      <button id="speak" style="flex:1 1 140px;background:var(--accent);border-color:var(--accent);font-weight:600">Speak</button>
+      <select id="engine"><option value="native">native (Unitree)</option><option value="local">local (Piper)</option></select>
+      <select id="speaker" title="speaker id"><option>0</option><option selected>1</option><option>2</option><option>3</option></select>
+    </div>
+    <div class="row" id="phrases"></div>
+    <div class="row">
+      <label class="inline">volume <input type="range" id="vol" min="0" max="100" step="5" value="55"><b id="volval">55</b></label>
+      <button id="volset">Set</button>
+      <button id="led">Green LED</button>
+    </div>
+    <div class="status" id="saystatus"></div>
+    <div class="hint">The selected voice is saved on the robot and is also used for every Voice-ask reply.</div>
+  </section>
+
+  <section id="asksection">
+    <h2>Voice ask — DJI mic</h2>
+    <div class="row" style="margin-top:0">
+      <button id="askbtn" style="flex:1 1 150px;background:var(--accent);border-color:var(--accent);font-weight:600">🎙 Ask — speak, then pause</button>
+      <label class="inline"><input type="checkbox" id="askhold"> hold to talk</label>
+    </div>
+    <div class="meter"><i id="askmeter"></i></div>
+    <div class="status" id="askstatus">Checking the DJI backend…</div>
+    <div class="row">
+      <input type="text" id="asktext" placeholder="…or type a question for the same pipeline">
+      <button id="asksend">Ask</button>
+    </div>
+    <div id="askanswer"></div>
+    <h2 style="margin-top:14px">Knowledge base</h2>
+    <div class="row" style="margin-top:0"><input type="text" id="askkbtitle" placeholder="title (optional)"></div>
+    <div class="row"><textarea id="askkbtext" placeholder="Text the robot should remember. It answers from here first, then the web."></textarea></div>
+    <div class="row">
+      <button id="askkbadd" style="background:var(--ok);border-color:var(--ok);font-weight:600">Add to database</button>
+      <button id="askkbcancel" style="display:none">Cancel edit</button>
+      <button id="askkbreload">Reload</button>
+      <label class="inline"><input type="checkbox" id="askonline" checked> search online when it's not in the database</label>
+      <label class="inline">mic threshold <input type="range" id="askthr" min="80" max="1500" step="20" style="width:110px"><b id="askthrval"></b></label>
+    </div>
+    <div class="kb" id="askkblist"></div>
+
+    <h2 style="margin-top:14px">Jokes <span id="askjokeinfo" style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--dim)"></span></h2>
+    <div class="row" style="margin-top:0"><input type="text" id="askjoketitle" placeholder="label (optional)"></div>
+    <div class="row"><textarea id="askjoketext" placeholder="One joke per entry. Asked for a joke, the robot picks a random one it has not told yet; once they are all told it gets one online."></textarea></div>
+    <div class="row">
+      <button id="askjokeadd" style="background:var(--ok);border-color:var(--ok);font-weight:600">Add joke</button>
+      <button id="askjokecancel" style="display:none">Cancel edit</button>
+      <button id="askjokereset">Reset told</button>
+      <button id="askjokereload">Reload</button>
+    </div>
+    <div class="kb" id="askjokelist"></div>
+  </section>
+
+  <section>
+    <h2>Pose &amp; balance</h2>
+    <div class="gate" id="gate">
+      <input type="checkbox" id="arm"><label for="arm">Motion armed — the robot is clear, no one within 2 m, spotter present</label>
+    </div>
+    <div class="banner" id="estopbanner">E-STOP engaged — motion commands are blocked until cleared.</div>
+    <div class="grid pose">
+      <button data-loco="prepare" style="background:#132a1c;border-color:var(--ok);font-weight:600">Prepare robot<br><small style="color:var(--dim)">damp → start → stand up</small></button>
+      <button data-loco="sit">Sit</button>
+      <button data-loco="stand_up">Stand up (squat→stand)</button>
+      <button data-loco="lie_to_stand">Lie → stand</button>
+      <button data-loco="squat">Stand → squat</button>
+      <button data-loco="damp">Damp</button>
+      <button data-loco="start">Start</button>
+      <button data-loco="high_stand">High stand</button>
+      <button data-loco="low_stand">Low stand</button>
+      <button data-loco="zero_torque" style="border-color:#6b3b12">Zero torque (limp)</button>
+      <button data-loco="stop_move">Stop move</button>
+    </div>
+    <div class="hint">Zero torque releases the joints — the robot will collapse unless it is supported.</div>
+  </section>
+
+  <section>
+    <h2>Gestures</h2>
+    <div class="hint" style="margin:0 0 8px">Zero torque / Damp and the loco gestures work while the robot is damped. The arm presets
+      below need the robot standing in main control — they return code 7404 otherwise.</div>
+    <div class="grid gesture">
+      <button data-loco="zero_torque" style="border-color:#6b3b12">Zero torque (limp)</button>
+      <button data-loco="damp">Damp (damping)</button>
+      <button data-loco="wave_hand">Wave hand</button>
+      <button data-loco="wave_hand_turn">Wave &amp; turn</button>
+      <button data-loco="shake_hand">Shake hand (loco)</button>
+      <button data-arm="shake hand">Shake hand</button>
+      <button data-arm="high five">High five</button>
+      <button data-arm="hug">Hug</button>
+      <button data-arm="clap">Clap</button>
+      <button data-arm="heart">Heart</button>
+      <button data-arm="right heart">Right heart</button>
+      <button data-arm="hands up">Hands up</button>
+      <button data-arm="face wave">Face wave</button>
+      <button data-arm="high wave">High wave</button>
+      <button data-arm="right hand up">Right hand up</button>
+      <button data-arm="reject">Reject</button>
+      <button data-arm="x-ray">X-ray</button>
+      <button data-arm="left kiss">Left kiss</button>
+      <button data-arm="right kiss">Right kiss</button>
+      <button data-arm="two-hand kiss">Two-hand kiss</button>
+      <button data-arm="release arm">Release arm</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Walk</h2>
+    <div class="row" style="margin-top:0">
+      <label class="inline"><input type="checkbox" id="walkgate"> Enable walking (hold a direction)</label>
+    </div>
+    <div class="pad" id="pad">
+      <button class="mid"></button><button data-mv="0.25,0,0">▲</button><button class="mid"></button>
+      <button data-mv="0,0,0.4">↺</button><button class="mid"></button><button data-mv="0,0,-0.4">↻</button>
+      <button data-mv="0,0.22,0">◀</button><button data-mv="-0.2,0,0">▼</button><button data-mv="0,-0.22,0">▶</button>
+    </div>
+    <div class="row">
+      <label class="inline">speed <input type="range" id="spd" min="20" max="100" step="5" value="60"><b id="spdval">60</b>%</label>
+      <button data-loco="stop_move">STOP</button>
+    </div>
+    <div class="hint">Release to stop. The server also zeroes velocity 0.6 s after the last command, and each command lasts at most 1 s.</div>
+  </section>
+
+  <section>
+    <h2>Log</h2>
+    <div class="log" id="log"></div>
+  </section>
+</main>
+
+<div id="estopbar">
+  <button class="danger" id="estop">■ E-STOP (stop + damp)</button>
+  <button class="clear" id="estopclear">Clear E-stop</button>
+</div>
+<footer>Commands go straight to the robot over DDS. Keep a hand near the E-stop whenever the robot is standing.</footer>
+
+<script>
+const KEY = new URLSearchParams(location.search).get('k') || sessionStorage.getItem('g1pk') || '';
+if (KEY) sessionStorage.setItem('g1pk', KEY);
+let armed = false;
+let volSynced = false;
+let localVoiceOk = true;
+
+async function api(path, body) {
+  const h = {'X-Pilot-Key': KEY};
+  if (body !== undefined) { h['Content-Type'] = 'application/json'; h['X-Pilot-Motion'] = armed ? 'clear' : 'blocked'; }
+  const r = await fetch(path, {method: body === undefined ? 'GET' : 'POST', headers: h,
+                               body: body === undefined ? undefined : JSON.stringify(body)});
+  let data = {};
+  try { data = await r.json(); } catch (e) {}
+  return {ok: r.ok, code: r.status, data};
+}
+function status(msg, colour) {
+  const el = document.getElementById('saystatus');
+  el.textContent = msg; el.style.color = colour || 'var(--dim)';
+}
+function note(msg, colour) { status(msg, colour); }
+
+document.getElementById('arm').addEventListener('change', e => {
+  armed = e.target.checked;
+  note(armed ? 'Motion armed.' : 'Motion disarmed — pose and gesture buttons are blocked.',
+       armed ? 'var(--warn)' : 'var(--dim)');
+});
+
+async function say() {
+  const text = document.getElementById('saytext').value.trim();
+  if (!text) return note('Nothing to say.', 'var(--warn)');
+  const engine = document.getElementById('engine').value;
+  const speaker = document.getElementById('speaker').value;
+  status('Speaking…');
+  const {ok, data} = await api('/api/say', {text, engine, speaker_id: parseInt(speaker)});
+  if (!ok) return status('Failed: ' + (data.error || 'error'), 'var(--err)');
+  const good = data.code === 0;
+  status(`${good ? 'Spoke' : 'TTS returned code ' + data.code} via ${data.engine} in ${data.seconds}s`,
+         good ? 'var(--ok)' : 'var(--err)');
+}
+document.getElementById('speak').addEventListener('click', say);
+document.getElementById('engine').addEventListener('change', async e => {
+  const {data} = await api('/api/tts', {engine: e.target.value});
+  const label = data.engine === 'local' ? 'Piper (local)' : 'Unitree (native)';
+  document.getElementById('c-voice').textContent = data.engine === 'local' ? 'Piper' : 'Unitree';
+  note('Voice set to ' + label + ' — used for every reply from now on.',
+       data.engine === 'local' && !localVoiceOk ? 'var(--warn)' : 'var(--ok)');
+});
+document.getElementById('speaker').addEventListener('change', async e => {
+  await api('/api/tts', {speaker_id: parseInt(e.target.value)});
+  note('Speaker id saved: ' + e.target.value);
+});
+document.getElementById('saytext').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) say();
+});
+
+const PHRASES = ["Hello, I'm G1.", "Welcome to the lab.", "Please stand clear of my arms.",
+                 "Nice to meet you.", "I am powered by Unitree.", "Watch this!"];
+const pbox = document.getElementById('phrases');
+PHRASES.forEach(p => {
+  const b = document.createElement('button');
+  b.className = 'phrase'; b.textContent = p;
+  b.addEventListener('click', () => { document.getElementById('saytext').value = p; say(); });
+  pbox.appendChild(b);
+});
+
+document.getElementById('volset').addEventListener('click', async () => {
+  const v = parseInt(document.getElementById('vol').value);
+  const {data} = await api('/api/volume', {volume: v});
+  note('Volume → ' + v + ' (code ' + data.code + ')', data.code === 0 ? 'var(--ok)' : 'var(--err)');
+});
+document.getElementById('vol').addEventListener('input', e => document.getElementById('volval').textContent = e.target.value);
+document.getElementById('led').addEventListener('click', async () => {
+  await api('/api/led', {r: 0, g: 255, b: 0});
+  note('LED set to green.');
+});
+
+function motionBlocked() {
+  if (!document.getElementById('arm').checked) return 'Arm motion first (checkbox in Pose section).';
+  if (document.getElementById('c-estop').textContent === 'engaged') return 'E-stop is engaged.';
+  return null;
+}
+async function loco(action) {
+  if (action !== 'stop_move') {
+    const why = motionBlocked();
+    if (why) return note(why, 'var(--warn)');
+  }
+  const {ok, data} = await api('/api/loco', {action});
+  if (!ok) return note(`${action} refused: ${data.error || 'request rejected'}`, 'var(--err)');
+  if (data.steps) {
+    const summary = data.steps.map(s => `${s.step} ${s.code}`).join(' · ');
+    const good = data.steps.every(s => s.code === 0);
+    return note(`prepare → ${summary} ${good ? '(robot is up)' : '(check codes)'}`,
+                good ? 'var(--ok)' : 'var(--err)');
+  }
+  if (data.ok) return note(`${action} → accepted by the robot (code 0)`, 'var(--ok)');
+  note(`⚠ ${action} → robot returned code ${data.code} (not accepted; check the robot's mode)`, 'var(--err)');
+}
+document.querySelectorAll('[data-loco]').forEach(b => b.addEventListener('click', () => loco(b.dataset.loco)));
+document.querySelectorAll('[data-arm]').forEach(b => b.addEventListener('click', async () => {
+  const why = motionBlocked(); if (why) return note(why, 'var(--warn)');
+  const {ok, data} = await api('/api/arm', {action: b.dataset.arm});
+  if (!ok) return note(`arm ${b.dataset.arm} refused: ${data.error || ''}`, 'var(--err)');
+  if (data.ok) return note(`arm ${data.action} → accepted (code 0)`, 'var(--ok)');
+  note(`⚠ arm ${data.action} → robot returned code ${data.code}. Arm presets normally need the robot
+        standing in main control (Start, then Stand up); the loco gestures (Wave hand, Shake hand)
+        work while it is damped.`, 'var(--err)');
+}));
+
+// ---- walk pad: hold to move
+let timer = null;
+function sendMove(v) {
+  const scale = parseInt(document.getElementById('spd').value) / 100;
+  api('/api/move', {vx: v[0] * scale, vy: v[1] * scale, vyaw: v[2] * scale});
+}
+function startPad(v) {
+  if (!document.getElementById('walkgate').checked) return note('Tick "Enable walking" first.', 'var(--warn)');
+  const why = motionBlocked(); if (why) return note(why, 'var(--warn)');
+  if (timer) return;
+  sendMove(v);
+  timer = setInterval(() => sendMove(v), 200);
+}
+function stopPad() {
+  if (!timer) return;
+  clearInterval(timer); timer = null;
+  api('/api/move', {vx: 0, vy: 0, vyaw: 0});
+}
+document.querySelectorAll('#pad [data-mv]').forEach(b => {
+  const v = b.dataset.mv.split(',').map(Number);
+  b.addEventListener('pointerdown', e => { e.preventDefault(); b.setPointerCapture(e.pointerId); startPad(v); });
+  b.addEventListener('pointerup', stopPad);
+  b.addEventListener('pointercancel', stopPad);
+  b.addEventListener('pointerleave', stopPad);
+});
+document.getElementById('spd').addEventListener('input', e => document.getElementById('spdval').textContent = e.target.value);
+const KEYS = {ArrowUp: [0.25, 0, 0], ArrowDown: [-0.2, 0, 0], ArrowLeft: [0, 0.22, 0], ArrowRight: [0, -0.22, 0],
+              w: [0.25, 0, 0], s: [-0.2, 0, 0], a: [0, 0.22, 0], d: [0, -0.22, 0],
+              q: [0, 0, 0.4], e: [0, 0, -0.4]};
+document.addEventListener('keydown', e => { if (KEYS[e.key] && !e.repeat && document.activeElement.tagName !== 'TEXTAREA') startPad(KEYS[e.key]); });
+document.addEventListener('keyup', e => { if (KEYS[e.key]) stopPad(); });
+
+// ---- voice ask (DJI mic, backend on the Mac) ---------------------------------
+let askRecording = false;
+let askVoice = null;
+let kbEntries = [];
+let kbEditId = null;
+let jokeEntries = [];
+let jokeEditId = null;
+function askNote(msg, colour) {
+  const el = document.getElementById('askstatus');
+  el.textContent = msg; el.style.color = colour || 'var(--dim)';
+}
+async function askBackend(path, body) {
+  const r = await fetch(path, {method: body === undefined ? 'GET' : 'POST',
+    headers: {'X-Pilot-Key': KEY, 'Content-Type': 'application/json'},
+    body: body === undefined ? undefined : JSON.stringify(body)});
+  let data = {};
+  try { data = await r.json(); } catch (e) {}
+  return {ok: r.ok, data};
+}
+function askRender(data, meta) {
+  if (data && data.skipped) {
+    askNote(`Heard ${data.heard_name || data.detected} — only answering ${data.want_name || data.wanted}. `
+            + 'Nothing spoken.', 'var(--warn)');
+    return;
+  }
+  const a = data.answer;
+  if (!a) { askNote(data.error || 'No answer.', 'var(--warn)'); return; }
+  const cls = (a.source || '').startsWith('kb') ? 'kb' : (a.source ? (a.source.indexOf('llm') >= 0 || a.source.indexOf('web') >= 0 ? 'web' : 'none') : 'none');
+  document.getElementById('askanswer').insertAdjacentHTML('afterbegin',
+    `<div class="qa"><div class="q">you: ${(data.transcript || '(typed)').replace(/</g,'&lt;')}</div>
+     <div>${a.text.replace(/</g,'&lt;')}</div>
+     <div style="margin-top:5px"><span class="badge ${cls}">${a.source}</span>
+     ${a.title ? '<span class="badge">' + a.title.slice(0,40).replace(/</g,'&lt;') + '</span>' : ''}
+     ${a.searched ? '<span class="badge">searched: ' + a.searched.slice(0,44).replace(/</g,'&lt;') + '</span>' : ''}
+     ${data.spoken && data.spoken.spoke ? '<span class="badge kb">spoken by robot</span>' : ''}</div></div>`);
+  askNote(meta || '', 'var(--dim)');
+}
+async function askNow() {
+  if (askRecording) return;
+  document.getElementById('askbtn').disabled = true;
+  askNote('Listening… speak into the DJI mic, then pause to finish.', 'var(--accent)');
+  const {ok, data} = await askBackend('/api/ask', {mode: 'auto'});
+  document.getElementById('askbtn').disabled = false;
+  if (!ok) { askNote(data.error || 'backend error', 'var(--err)'); return; }
+  const meta = [data.stt_seconds != null ? `stt ${data.stt_seconds}s` : null,
+                data.answer ? `lookup ${data.answer.seconds}s` : null,
+                data.total_seconds != null ? `total ${data.total_seconds}s` : null].filter(Boolean).join(' · ');
+  askRender(data, meta);
+}
+document.getElementById('askbtn').addEventListener('pointerdown', async () => {
+  if (!document.getElementById('askhold').checked) return;
+  askRecording = true;
+  document.getElementById('askbtn').textContent = '■ Release to send';
+  askNote('Recording (hold to talk)…', 'var(--accent)');
+  await askBackend('/api/ask_start', {});
+});
+document.getElementById('askbtn').addEventListener('pointerup', async () => {
+  if (!document.getElementById('askhold').checked || !askRecording) return;
+  askRecording = false;
+  document.getElementById('askbtn').textContent = '🎙 Ask — speak, then pause';
+  askNote('Transcribing…', 'var(--accent)');
+  const {ok, data} = await askBackend('/api/ask_stop', {});
+  if (!ok) { askNote(data.error || 'backend error', 'var(--err)'); return; }
+  askRender(data, data.stt_seconds != null ? `stt ${data.stt_seconds}s` : '');
+});
+document.getElementById('askbtn').addEventListener('click', () => {
+  if (!document.getElementById('askhold').checked) askNow();
+});
+document.getElementById('asksend').addEventListener('click', async () => {
+  const question = document.getElementById('asktext').value.trim();
+  if (!question) return;
+  document.getElementById('asktext').value = '';
+  askNote('Looking it up…', 'var(--accent)');
+  const {ok, data} = await askBackend('/api/ask_text', {question});
+  if (!ok) { askNote(data.error || 'backend error', 'var(--err)'); return; }
+  askRender(data, data.answer ? `lookup ${data.answer.seconds}s` : '');
+});
+async function askKbLoad() {
+  const {ok, data} = await askBackend('/api/ask/kb');
+  if (!ok) { askNote('Knowledge base unavailable: ' + (data.error || ''), 'var(--err)'); return; }
+  const entries = data.entries || [];
+  kbEntries = entries;
+  document.getElementById('askkblist').innerHTML = entries.length ? entries.map(e =>
+    `<div class="e"><div style="flex:1"><b>${(e.title || e.id).replace(/</g,'&lt;')}</b>
+      <span>${e.text.slice(0,160).replace(/</g,'&lt;')}${e.text.length > 160 ? '…' : ''}</span>
+      <div><span>${e.edited ? 'edited ' + e.edited : (e.added || '')} · ${e.id}</span></div></div>
+     <button data-askedit="${e.id}">edit</button>
+     <button data-askdel="${e.id}">delete</button></div>`).join('')
+    : '<span style="color:var(--dim)">Empty — add text above.</span>';
+}
+function askKbCancelEdit() {
+  kbEditId = null;
+  document.getElementById('askkbtext').value = '';
+  document.getElementById('askkbtitle').value = '';
+  document.getElementById('askkbadd').textContent = 'Add to database';
+  document.getElementById('askkbcancel').style.display = 'none';
+}
+document.getElementById('askkblist').addEventListener('click', async e => {
+  const delId = e.target.dataset.askdel;
+  const editId = e.target.dataset.askedit;
+  if (delId) {
+    await askBackend('/api/ask/kb_delete', {id: delId});
+    if (kbEditId === delId) askKbCancelEdit();
+    askKbLoad();
+    return;
+  }
+  if (editId) {
+    const entry = (kbEntries || []).find(x => x.id === editId);
+    if (!entry) return;
+    kbEditId = editId;
+    document.getElementById('askkbtitle').value = entry.title || '';
+    document.getElementById('askkbtext').value = entry.text || '';
+    document.getElementById('askkbadd').textContent = 'Save changes';
+    document.getElementById('askkbcancel').style.display = 'inline-block';
+    document.getElementById('askkbtext').focus();
+    askNote(`Editing “${(entry.title || entry.id)}” — change the text, then Save changes.`, 'var(--accent)');
+  }
+});
+document.getElementById('askkbcancel').addEventListener('click', () => {
+  askKbCancelEdit();
+  askNote('Edit cancelled.', 'var(--dim)');
+});
+document.getElementById('askkbreload').addEventListener('click', askKbLoad);
+document.getElementById('askkbadd').addEventListener('click', async () => {
+  const text = document.getElementById('askkbtext').value.trim();
+  const title = document.getElementById('askkbtitle').value.trim();
+  if (!text) return askNote('Nothing to add.', 'var(--warn)');
+  if (kbEditId) {
+    const {ok, data} = await askBackend('/api/ask/kb_update', {id: kbEditId, text, title});
+    askNote(ok ? 'Saved changes to ' + (data.title || kbEditId) : 'Save failed: ' + (data.error || ''),
+            ok ? 'var(--ok)' : 'var(--err)');
+    askKbCancelEdit();
+    askKbLoad();
+    return;
+  }
+  const {ok, data} = await askBackend('/api/ask/kb', {text, title});
+  document.getElementById('askkbtext').value = '';
+  document.getElementById('askkbtitle').value = '';
+  askNote(ok ? 'Added ' + (data.id || '') : 'Add failed: ' + (data.error || ''), ok ? 'var(--ok)' : 'var(--err)');
+  askKbLoad();
+});
+// ---- joke bank ----
+async function askJokeLoad() {
+  const {ok, data} = await askBackend('/api/ask/jokes');
+  if (!ok) { document.getElementById('askjokeinfo').textContent = ' — unavailable'; return; }
+  jokeEntries = data.entries || [];
+  const used = data.used || 0;
+  document.getElementById('askjokeinfo').textContent = jokeEntries.length
+    ? ` — ${jokeEntries.length} saved, ${used} told (random untold, online when all told)`
+    : ' — empty, pulls one from online';
+  document.getElementById('askjokelist').innerHTML = jokeEntries.length ? jokeEntries.map(j =>
+    `<div class="e"><div style="flex:1"><b>${(j.title || j.id).replace(/</g,'&lt;')}</b>
+      <span>${j.text.slice(0,150).replace(/</g,'&lt;')}${j.text.length > 150 ? '…' : ''}</span></div>
+     <button data-jokeedit="${j.id}">edit</button>
+     <button data-jokedel="${j.id}">delete</button></div>`).join('')
+    : '<span style="color:var(--dim)">No jokes yet — “tell me a joke” will fetch one online.</span>';
+}
+function askJokeCancelEdit() {
+  jokeEditId = null;
+  document.getElementById('askjoketext').value = '';
+  document.getElementById('askjoketitle').value = '';
+  document.getElementById('askjokeadd').textContent = 'Add joke';
+  document.getElementById('askjokecancel').style.display = 'none';
+}
+document.getElementById('askjokelist').addEventListener('click', async e => {
+  const delId = e.target.dataset.jokedel;
+  const editId = e.target.dataset.jokeedit;
+  if (delId) {
+    await askBackend('/api/ask/jokes_delete', {id: delId});
+    if (jokeEditId === delId) askJokeCancelEdit();
+    askJokeLoad();
+    return;
+  }
+  if (editId) {
+    const entry = (jokeEntries || []).find(x => x.id === editId);
+    if (!entry) return;
+    jokeEditId = editId;
+    document.getElementById('askjoketitle').value = entry.title || '';
+    document.getElementById('askjoketext').value = entry.text || '';
+    document.getElementById('askjokeadd').textContent = 'Save joke';
+    document.getElementById('askjokecancel').style.display = 'inline-block';
+    document.getElementById('askjoketext').focus();
+    askNote(`Editing joke “${entry.title || entry.id}” — change it, then Save.`, 'var(--accent)');
+  }
+});
+document.getElementById('askjokecancel').addEventListener('click', () => { askJokeCancelEdit(); askJokeLoad(); });
+document.getElementById('askjokereload').addEventListener('click', askJokeLoad);
+document.getElementById('askjokeadd').addEventListener('click', async () => {
+  const text = document.getElementById('askjoketext').value.trim();
+  const title = document.getElementById('askjoketitle').value.trim();
+  if (!text) return askNote('Write the joke first.', 'var(--warn)');
+  if (jokeEditId) {
+    const {ok, data} = await askBackend('/api/ask/jokes_update', {id: jokeEditId, text, title});
+    askNote(ok ? 'Joke saved.' : 'Save failed: ' + (data.error || ''), ok ? 'var(--ok)' : 'var(--err)');
+    askJokeCancelEdit();
+  } else {
+    const {ok, data} = await askBackend('/api/ask/jokes_add', {text, title});
+    askNote(ok ? 'Joke added.' : 'Add failed: ' + (data.error || ''), ok ? 'var(--ok)' : 'var(--err)');
+    document.getElementById('askjoketext').value = '';
+    document.getElementById('askjoketitle').value = '';
+  }
+  askJokeLoad();
+});
+document.getElementById('askjokereset').addEventListener('click', async () => {
+  await askBackend('/api/ask/jokes_reset', {});
+  askNote('All jokes are marked untold again.', 'var(--ok)');
+  askJokeLoad();
+});
+
+document.getElementById('askonline').addEventListener('change', e => askBackend('/api/ask_config', {db_only: !e.target.checked, online: true}));
+document.getElementById('askthr').addEventListener('change', e => askBackend('/api/ask_config', {rms_threshold: parseInt(e.target.value)}));
+document.getElementById('askthr').addEventListener('input', e => document.getElementById('askthrval').textContent = e.target.value);
+
+async function askRefresh() {
+  const {ok, data} = await askBackend('/api/ask/status');  if (!ok) {
+    askNote('DJI backend: ' + (data.error || 'unreachable'), 'var(--err)');
+    document.getElementById('askmeter').style.width = '0%';
+    return;
+  }
+  document.getElementById('askmeter').style.width = Math.min(100, Math.round((data.level || 0) / 20)) + '%';
+  if (data.voice) askVoice = data.voice;
+  if (data.state !== 'idle') askNote('DJI backend: ' + data.state, 'var(--accent)');
+  else if (askVoice) askNote('Replies spoken with ' + (askVoice === 'local' ? 'Piper (local)' : 'Unitree (native)') + '.', 'var(--dim)');
+  if (document.activeElement !== document.getElementById('askthr')) {
+    document.getElementById('askthr').value = data.threshold;
+    document.getElementById('askthrval').textContent = data.threshold;
+  }
+  if (data.db_only !== undefined) document.getElementById('askonline').checked = !data.db_only;
+}
+
+// ---- e-stop
+async function estop() {
+  const {data} = await api('/api/estop', {});
+  note('E-STOP engaged.', 'var(--err)');
+  refresh();
+}
+document.getElementById('estop').addEventListener('click', estop);
+document.getElementById('estopclear').addEventListener('click', async () => {
+  await api('/api/estop_clear', {});
+  note('E-stop cleared — still disarmed until you tick the motion box.', 'var(--warn)');
+  refresh();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') estop(); });
+
+// ---- state polling
+async function refresh() {
+  const {ok, data} = await api('/api/state');
+  document.getElementById('link').className = 'dot' + (ok ? ' on' : '');
+  if (!ok) { status('Cannot reach the pilot service (' + data.error + ')', 'var(--err)'); return; }
+  document.getElementById('c-fsm').textContent = data.fsm_label ?? '–';
+  document.getElementById('c-vol').textContent = data.volume ?? '–';
+  if (data.tts_engine) {
+    document.getElementById('engine').value = data.tts_engine;
+    document.getElementById('c-voice').textContent = data.tts_engine === 'local' ? 'Piper' : 'Unitree';
+    localVoiceOk = data.tts_local_available !== false;
+    if (data.tts_speaker != null) document.getElementById('speaker').value = data.tts_speaker;
+  }
+  document.getElementById('c-estop').textContent = data.estop ? 'engaged' : 'clear';
+  document.getElementById('c-move').textContent = data.moving ? 'MOVING' : (data.speaking ? 'speaking' : 'idle');
+  const up = data.uptime_s || 0;
+  document.getElementById('c-up').textContent = 'session ' + Math.floor(up / 60) + 'm';
+  document.getElementById('estopbanner').className = 'banner' + (data.estop ? ' on' : '');
+  if (!volSynced && data.volume != null) {
+    volSynced = true;
+    document.getElementById('vol').value = data.volume;
+    document.getElementById('volval').textContent = data.volume;
+  }
+  document.getElementById('log').innerHTML = (data.log || [])
+    .map(l => `<div><b>${l.t}</b> ${l.event} <span>${(l.detail || '')}</span></div>`).join('');
+}
+refresh();
+setInterval(refresh, 1500);
+askKbLoad();
+askJokeLoad();
+askRefresh();
+setInterval(askRefresh, 2000);
+if (!KEY) status('No key in the URL — open this page as /?k=<key>', 'var(--err)');
+</script>
+</body>
+</html>

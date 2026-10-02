@@ -1,0 +1,8 @@
+# runtime / private files — never publish these
+config.json
+url.txt
+launch.html
+*.log
+__pycache__/
+*.pyc
+.DS_Store

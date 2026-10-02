@@ -1,0 +1,16 @@
+[Unit]
+Description=G1 Pilot web console (speech + supervised motion)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/g1-pilot
+ExecStart=%h/venv-unitree/bin/python3 %h/g1-pilot/g1_pilot.py
+Restart=always
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+StandardOutput=append:%h/g1-pilot/pilot.log
+StandardError=append:%h/g1-pilot/pilot.log
+
+[Install]
+WantedBy=default.target
